@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { AIState } from '../onnx';
+import type { AIState } from '../tfjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Undo2 } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
@@ -13,8 +13,15 @@ import { RulesModal } from './RulesModal';
 import { Toast } from './Toast';
 import { CardCounter } from './CardCounter';
 import { ModelLoadingIndicator } from './ModelLoadingIndicator';
+import {
+  DouZeroHintPanel,
+  formatCardsShort,
+  readHintEnabled,
+  writeHintEnabled,
+  type HintOption,
+} from './DouZeroHintPanel';
 import { getCardType, canBeat, findAllPlays } from '../game/rules';
-import { decideBid, decidePlayAsync, decidePlayTopK } from '../game/ai';
+import { decideBid, decidePlayAsync, decidePlayTopK, resetDouZeroAI } from '../game/ai';
 import {
   setSoundEnabled,
   playDealSound,
@@ -58,6 +65,7 @@ export function GameScreen({ onBack }: GameScreenProps) {
     playHistory,
     undoRequestStatus,
     selectCard,
+    clearSelectedCards,
     playCards,
     pass,
     bid,
@@ -80,6 +88,9 @@ export function GameScreen({ onBack }: GameScreenProps) {
   // DouZero 模型加载状态
   const [douzeroLoaded, setDouzeroLoaded] = useState(false);
   const [modelState, setModelState] = useState<AIState>('idle');
+  const [hintEnabled, setHintEnabled] = useState(readHintEnabled);
+  const [hintOptions, setHintOptions] = useState<HintOption[]>([]);
+  const [hintLoading, setHintLoading] = useState(false);
 
   const [showRules, setShowRules] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -234,6 +245,92 @@ export function GameScreen({ onBack }: GameScreenProps) {
   useEffect(() => {
     hintCycleRef.current = 0;
   }, [currentPlayer, lastPlay]);
+
+  // 轮到自己出牌时刷新 DouZero 侧栏推荐
+  useEffect(() => {
+    if (gameMode !== 'pve' || gamePhase !== 'playing') {
+      setHintOptions([]);
+      return;
+    }
+    if (!hintEnabled || !douzeroLoaded || modelState !== 'ready') {
+      setHintOptions([]);
+      return;
+    }
+    if (currentPlayer !== myPosition || players[myPosition].isAutoPlay) {
+      setHintOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+    setHintLoading(true);
+
+    (async () => {
+      try {
+        const state = useGameStore.getState();
+        const pos = state.myPosition;
+        const hand = state.players[pos].cards;
+        const isLandlord = state.players[pos].isLandlord;
+        const partnerPos = pos === 'left' ? 'right' : pos === 'right' ? 'left' : 'left';
+        const landlordPos = state.landlordPosition || 'bottom';
+        const history = state.playHistory.map((h) => ({
+          player: h.player,
+          cards: h.cards,
+          cardType: h.cardType,
+        }));
+
+        const topK = await decidePlayTopK(
+          hand,
+          state.lastPlay,
+          pos,
+          isLandlord,
+          state.difficulty,
+          state.players[partnerPos].remaining,
+          state.players[landlordPos].remaining,
+          history,
+          state.landlordPosition || undefined,
+          3
+        );
+
+        if (cancelled) return;
+        setHintOptions(
+          (topK || []).map((cards) => ({
+            cards,
+            label: formatCardsShort(cards),
+          }))
+        );
+      } catch {
+        if (!cancelled) setHintOptions([]);
+      } finally {
+        if (!cancelled) setHintLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    gameMode,
+    gamePhase,
+    hintEnabled,
+    douzeroLoaded,
+    modelState,
+    currentPlayer,
+    myPosition,
+    lastPlay,
+    players,
+  ]);
+
+  const handleHintEnabledChange = (enabled: boolean) => {
+    setHintEnabled(enabled);
+    writeHintEnabled(enabled);
+  };
+
+  const handleApplyHint = (cards: Card[]) => {
+    useGameStore.setState({ selectedCards: cards.map((c) => c.id) });
+    showToast(
+      cards.length === 0 ? 'DouZero 建议：过牌' : `已选中推荐：${formatCardsShort(cards)}`
+    );
+  };
 
   useEffect(() => {
     if (gameMode === 'online') return;
@@ -421,6 +518,7 @@ export function GameScreen({ onBack }: GameScreenProps) {
   const handleReloadModel = () => {
     setModelState('loading');
     setDouzeroLoaded(false);
+    resetDouZeroAI();
   };
 
   const handleBid = (score: 0 | 1 | 2 | 3) => {
@@ -488,17 +586,20 @@ export function GameScreen({ onBack }: GameScreenProps) {
       }} />
 
       <div className="relative z-10 flex flex-col h-screen p-2 md:p-4">
-        {/* DouZero 模型加载指示器 - 始终显示在人机模式 */}
-        {gameMode === 'pve' && (
+        {/* DouZero 模型加载指示器 - 人机模式且尚未加载完成时显示 */}
+        {gameMode === 'pve' && !douzeroLoaded && (
           <ModelLoadingIndicator
             onLoadComplete={() => {
               console.log('[GameScreen] DouZero 模型加载完成');
               setDouzeroLoaded(true);
+              setModelState('ready');
             }}
             onLoadError={(error) => {
               console.error('[GameScreen] DouZero 加载失败:', error);
               setDouzeroLoaded(true); // 仍然设置为 true，让游戏继续
+              setModelState('error');
             }}
+            onStateChange={(state) => setModelState(state)}
           />
         )}
         <div className="flex items-center justify-between mb-2">
@@ -693,15 +794,25 @@ export function GameScreen({ onBack }: GameScreenProps) {
         </div>
 
         <div className="mt-auto">
-          <div className="flex items-center justify-between mb-2 px-2">
-            <PlayerInfo
-              position="bottom"
-              name={players.bottom.name}
-              remaining={players.bottom.remaining}
-              isLandlord={landlordPosition === 'bottom'}
-              isActive={currentPlayer === 'bottom' && gamePhase === 'playing'}
-              isAutoPlay={players.bottom.isAutoPlay}
-            />
+          <div className="flex items-center justify-between mb-2 px-2 gap-2">
+            <div className="flex items-end gap-1 min-w-0">
+              <PlayerInfo
+                position="bottom"
+                name={players.bottom.name}
+                remaining={players.bottom.remaining}
+                isLandlord={landlordPosition === 'bottom'}
+                isActive={currentPlayer === 'bottom' && gamePhase === 'playing'}
+                isAutoPlay={players.bottom.isAutoPlay}
+              />
+              <DouZeroHintPanel
+                visible={gameMode === 'pve' && (gamePhase === 'playing' || gamePhase === 'bidding')}
+                loading={hintLoading}
+                options={hintOptions}
+                onApply={handleApplyHint}
+                enabled={hintEnabled}
+                onEnabledChange={handleHintEnabledChange}
+              />
+            </div>
             <ControlPanel
               onHint={gamePhase === 'playing' ? handleHint : undefined}
               onToggleAutoPlay={() => toggleAutoPlay(myPosition)}
@@ -716,6 +827,11 @@ export function GameScreen({ onBack }: GameScreenProps) {
               cards={myCards}
               selectedCardIds={selectedCards}
               onSelectCard={selectCard}
+              onClearSelection={
+                gamePhase === 'playing' && selectedCards.length > 0
+                  ? clearSelectedCards
+                  : undefined
+              }
               onPlay={gamePhase === 'playing' ? handlePlay : undefined}
               onPass={gamePhase === 'playing' ? handlePass : undefined}
               onHint={gamePhase === 'playing' ? handleHint : undefined}

@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
+    "export:tfjs": "scripts/venv/bin/python scripts/export_douzero_tfjs_weights.py",
     "build:android": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug && echo \"APK: app/build/outputs/apk/debug/app-debug.apk\"",
     "electron:dev": "npm run build && electron electron/main.cjs",
     "dist:desktop": "npm run build && electron-builder --publish=never",

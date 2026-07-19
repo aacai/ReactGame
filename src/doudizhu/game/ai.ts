@@ -1,7 +1,7 @@
 import type { Card, CardType, PlayerPosition, Difficulty } from './types';
 import { countByRank, getCardType, canBeat, findAllPlays } from './rules';
 import { sortCards } from './deck';
-import { DouZeroAI, createDouZeroAI, type AIState } from '../onnx';
+import { DouZeroTFJS, createDouZeroTFJS, type AIState } from '../tfjs';
 
 type LastPlay = { cards: Card[]; cardType: CardType; mainRank: number; length: number } | null;
 
@@ -12,50 +12,70 @@ type PlayHistoryEntry = {
 };
 
 /**
- * DouZero AI 实例 (可选)
+ * DouZero AI 实例（仅 TensorFlow.js）
  *
  * 说明:
- * - 如果启用 DouZero AI,将使用深度强化学习模型
- * - 否则使用启发式 AI
+ * - 人机模式统一使用 TensorFlow.js 加载 DouZero 权重
+ * - 加载失败时 decidePlayAsync 会降级到启发式 AI
  */
-let douzeroAI: DouZeroAI | null = null;
+let douzeroAI: DouZeroTFJS | null = null;
+let initPromise: Promise<DouZeroTFJS> | null = null;
 
 /**
- * 初始化 DouZero AI
- *
- * @param onStateChange 状态变化回调
- * @returns DouZero AI 实例
- *
- * 改动说明:
- * - 创建全局 DouZero AI 实例
- * - 支持异步加载模型
+ * 初始化 DouZero AI（TensorFlow.js）
  */
 export async function initializeDouZeroAI(
   onStateChange?: (state: AIState) => void,
-  forceReload = false
-): Promise<DouZeroAI> {
-  if (douzeroAI && !forceReload) {
-    // 已存在实例：更新回调，直接复用（不再重复加载）
+  forceReload = false,
+  onProgress?: (model: import('../tfjs').ModelType, progress: import('../tfjs').LoadProgress) => void
+): Promise<DouZeroTFJS> {
+  // 已就绪：直接复用
+  if (douzeroAI && douzeroAI.getState() === 'ready' && !forceReload) {
     if (onStateChange) douzeroAI.setOnStateChange(onStateChange);
     return douzeroAI;
   }
 
-  console.log('\n初始化 DouZero AI...');
+  // 正在加载：等待同一 Promise，避免 Strict Mode 双挂载竞态
+  if (initPromise && !forceReload) {
+    const ai = await initPromise;
+    if (onStateChange) ai.setOnStateChange(onStateChange);
+    return ai;
+  }
 
-  douzeroAI = createDouZeroAI({
-    difficulty: 'hard',
-    onStateChange: (state) => {
-      console.log(`DouZero AI 状态: ${state}`);
-      onStateChange?.(state);
-    },
-    onError: (error) => {
-      console.error('DouZero AI 错误:', error);
-    },
-  });
+  initPromise = (async () => {
+    if (forceReload && douzeroAI) {
+      try {
+        await douzeroAI.dispose();
+      } catch {
+        /* ignore */
+      }
+      douzeroAI = null;
+    }
 
-  await douzeroAI.loadModels();
+    console.log('\n初始化 DouZero AI (TensorFlow.js)...');
 
-  return douzeroAI;
+    const ai = createDouZeroTFJS({
+      difficulty: 'hard',
+      onStateChange: (state) => {
+        console.log(`DouZero AI 状态: ${state}`);
+        onStateChange?.(state);
+      },
+      onProgress,
+      onError: (error) => {
+        console.error('DouZero AI 错误:', error);
+      },
+    });
+
+    await ai.loadModels();
+    douzeroAI = ai;
+    return ai;
+  })();
+
+  try {
+    return await initPromise;
+  } finally {
+    initPromise = null;
+  }
 }
 
 /**
@@ -69,7 +89,7 @@ export function resetDouZeroAI(): void {
 /**
  * 获取 DouZero AI 实例
  */
-export function getDouZeroAI(): DouZeroAI | null {
+export function getDouZeroAI(): DouZeroTFJS | null {
   return douzeroAI;
 }
 

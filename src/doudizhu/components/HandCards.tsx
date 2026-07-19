@@ -6,6 +6,7 @@ interface HandCardsProps {
   cards: Card[];
   selectedCardIds: string[];
   onSelectCard: (cardId: string) => void;
+  onClearSelection?: () => void;
   onPlay?: () => void;
   onPass?: () => void;
   onHint?: () => void;
@@ -25,6 +26,7 @@ export function HandCards({
   cards,
   selectedCardIds,
   onSelectCard,
+  onClearSelection,
   onPlay,
   onPass,
   onHint,
@@ -109,12 +111,31 @@ export function HandCards({
         </AnimatePresence>
       </div>
 
-      {(onPlay || onPass || onHint) && (
+      {(onPlay || onPass || onHint || onClearSelection) && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex gap-3"
+          className="flex gap-3 flex-wrap justify-center"
         >
+          {onClearSelection && selectedCardIds.length > 0 && (
+            <motion.button
+              whileHover={!disabled ? { scale: 1.05 } : undefined}
+              whileTap={!disabled ? { scale: 0.95 } : undefined}
+              onClick={onClearSelection}
+              disabled={disabled}
+              className={`
+                px-5 py-2 rounded-lg font-bold text-white
+                transition-all duration-200
+                ${!disabled
+                  ? 'bg-amber-600/90 hover:bg-amber-600 cursor-pointer'
+                  : 'bg-gray-400 cursor-not-allowed opacity-60'
+                }
+              `}
+            >
+              放下
+            </motion.button>
+          )}
+
           {onPass && (
             <motion.button
               whileHover={canPass && !disabled ? { scale: 1.05 } : undefined}

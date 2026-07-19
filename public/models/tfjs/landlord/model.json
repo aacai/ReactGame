@@ -1,0 +1,133 @@
+{
+  "modelTopology": {
+    "class_name": "DouZeroCustom",
+    "config": {
+      "name": "landlord"
+    }
+  },
+  "format": "douzero-tfjs-weights-v1",
+  "generatedBy": "scripts/export_douzero_tfjs_weights.py",
+  "xDim": 373,
+  "weightsManifest": [
+    {
+      "paths": [
+        "weights.bin"
+      ],
+      "weights": [
+        {
+          "name": "lstm/kernel",
+          "shape": [
+            162,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "lstm/recurrent_kernel",
+          "shape": [
+            128,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "lstm/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense1/kernel",
+          "shape": [
+            501,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense1/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense2/kernel",
+          "shape": [
+            512,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense2/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense3/kernel",
+          "shape": [
+            512,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense3/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense4/kernel",
+          "shape": [
+            512,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense4/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense5/kernel",
+          "shape": [
+            512,
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense5/bias",
+          "shape": [
+            512
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "values/kernel",
+          "shape": [
+            512,
+            1
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "values/bias",
+          "shape": [
+            1
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

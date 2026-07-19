@@ -1,16 +1,10 @@
 /**
- * DouZero 模型加载进度条组件
- *
- * 功能:
- * - 显示模型加载进度
- * - 支持三个模型独立进度显示
- * - 提供错误提示和重试功能
+ * DouZero 模型加载进度条组件（TensorFlow.js）
  */
 
 import React, { useEffect, useState } from 'react';
-import { initializeDouZeroAI } from '../game/ai';
-import type { AIState } from '../onnx';
-import type { ModelType, LoadProgress } from '../onnx';
+import { initializeDouZeroAI, resetDouZeroAI } from '../game/ai';
+import type { AIState, ModelType } from '../tfjs';
 
 interface ModelLoadStatus {
   landlord: number;
@@ -43,21 +37,35 @@ export const ModelLoadingIndicator: React.FC<Props> = ({
 
   const loadModels = async () => {
     try {
-      console.log('[ModelLoadingIndicator] 开始加载模型...');
+      console.log('[ModelLoadingIndicator] 开始加载 TensorFlow.js 模型...');
       setError(null);
       setAiState('loading');
       onStateChange?.('loading');
+      setProgress({ landlord: 0, landlord_up: 0, landlord_down: 0 });
 
-      // 使用简单版本的加载器
-      const { loadAllModels } = await import('../onnx/model-loader-simple');
-      await loadAllModels();
+      // 首次挂载不强制重建；重试按钮才 reset + forceReload
+      const ai = await initializeDouZeroAI(
+        (state) => {
+          setAiState(state);
+          onStateChange?.(state);
+        },
+        false,
+        (model, p) => {
+          setProgress((prev) => ({ ...prev, [model]: p.percentage }));
+        }
+      );
 
-      console.log('[ModelLoadingIndicator] ✓ 所有模型加载完成');
+      // 若 initialize 内部已加载完成，补齐进度显示
+      if (ai.getState() === 'ready') {
+        setProgress({ landlord: 100, landlord_up: 100, landlord_down: 100 });
+      }
+
+      console.log('[ModelLoadingIndicator] ✓ TensorFlow.js 模型加载成功');
       setAiState('ready');
       onStateChange?.('ready');
       onLoadComplete?.();
     } catch (err) {
-      console.error('[ModelLoadingIndicator] 模型加载失败:', err);
+      console.error('[ModelLoadingIndicator] TensorFlow.js 模型加载失败:', err);
       const errorMsg = err instanceof Error ? err.message : '模型加载失败';
       setError(errorMsg);
       setAiState('error');
@@ -67,7 +75,36 @@ export const ModelLoadingIndicator: React.FC<Props> = ({
   };
 
   const handleRetry = () => {
-    loadModels();
+    resetDouZeroAI();
+    setAiState('loading');
+    setError(null);
+    // 强制重新加载
+    (async () => {
+      try {
+        const ai = await initializeDouZeroAI(
+          (state) => {
+            setAiState(state);
+            onStateChange?.(state);
+          },
+          true,
+          (model, p) => {
+            setProgress((prev) => ({ ...prev, [model]: p.percentage }));
+          }
+        );
+        if (ai.getState() === 'ready') {
+          setProgress({ landlord: 100, landlord_up: 100, landlord_down: 100 });
+        }
+        setAiState('ready');
+        onStateChange?.('ready');
+        onLoadComplete?.();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '模型加载失败';
+        setError(errorMsg);
+        setAiState('error');
+        onStateChange?.('error');
+        onLoadError?.(err instanceof Error ? err : new Error(errorMsg));
+      }
+    })();
   };
 
   const modelNames: Record<ModelType, string> = {
@@ -86,8 +123,8 @@ export const ModelLoadingIndicator: React.FC<Props> = ({
         <div className="bg-white rounded-lg p-6 max-w-md mx-4">
           <div className="text-center">
             <div className="text-red-500 text-5xl mb-4">⚠</div>
-            <h3 className="text-lg font-bold mb-2">模型加载失败</h3>
-            <p className="text-gray-600 mb-4">{error}</p>
+            <h3 className="text-lg font-bold mb-2">TensorFlow.js 模型加载失败</h3>
+            <p className="text-gray-600 mb-4 whitespace-pre-wrap text-left text-sm">{error}</p>
             <p className="text-sm text-gray-500 mb-4">
               将使用启发式 AI 继续游戏
             </p>
@@ -120,9 +157,9 @@ export const ModelLoadingIndicator: React.FC<Props> = ({
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <div className="text-center mb-6">
           <div className="animate-spin text-4xl mb-4">⚙</div>
-          <h3 className="text-lg font-bold">正在加载 AI 模型</h3>
+          <h3 className="text-lg font-bold">正在加载 TensorFlow.js AI</h3>
           <p className="text-gray-500 text-sm mt-2">
-            首次加载需要下载模型文件 (约 5MB)
+            首次加载约需下载模型文件（约 17MB）
           </p>
         </div>
 
@@ -163,7 +200,7 @@ export const ModelLoadingIndicator: React.FC<Props> = ({
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-4">
-          模型将被缓存,下次启动更快
+          后端：TensorFlow.js · 全端统一
         </p>
       </div>
     </div>

@@ -66,6 +66,7 @@ interface GameState {
   startPvEGame: (difficulty: Difficulty) => void;
   selectCard: (cardId: string) => void;
   selectAllCards: () => void;
+  clearSelectedCards: () => void;
   playCards: () => boolean;
   pass: () => boolean;
   bid: (score: 0 | 1 | 2 | 3) => void;
@@ -250,6 +251,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     } else {
       set({ selectedCards: myCards.map(c => c.id) });
     }
+  },
+
+  clearSelectedCards: () => {
+    set({ selectedCards: [] });
   },
 
   playCards: (): boolean => {

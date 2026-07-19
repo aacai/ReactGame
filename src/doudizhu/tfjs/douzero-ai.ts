@@ -1,10 +1,8 @@
 /**
  * DouZero TensorFlow.js AI 实现
  *
- * 功能:
- * - 加载和管理 TensorFlow.js 模型
- * - 执行推理并选择动作
- * - 提供降级策略
+ * - 仅使用 TensorFlow.js LayersModel
+ * - 加载失败时降级到启发式 AI
  */
 
 import * as tf from '@tensorflow/tfjs';
@@ -26,23 +24,14 @@ import {
   type QValuePrediction,
 } from '../onnx/action-decoder';
 
-/**
- * AI 状态
- */
 export type AIState = 'idle' | 'loading' | 'ready' | 'error';
 
-/**
- * 走子历史的最小结构
- */
 interface PlayHistoryLike {
   player: PlayerPosition;
   cards: Card[];
   cardType: string;
 }
 
-/**
- * AI 配置
- */
 export interface DouZeroTFJSConfig {
   difficulty?: Difficulty;
   explorationRate?: number;
@@ -51,11 +40,8 @@ export interface DouZeroTFJSConfig {
   onError?: (error: Error) => void;
 }
 
-/**
- * DouZero TensorFlow.js AI 类
- */
 export class DouZeroTFJS {
-  private models: Map<ModelType, tf.GraphModel> = new Map();
+  private models: Map<ModelType, tf.LayersModel> = new Map();
   private state: AIState = 'idle';
   private config: DouZeroTFJSConfig;
   private loadingPromise: Promise<void> | null = null;
@@ -68,24 +54,19 @@ export class DouZeroTFJS {
     };
   }
 
-  /**
-   * 获取当前状态
-   */
   getState(): AIState {
     return this.state;
   }
 
-  /**
-   * 设置状态
-   */
+  setOnStateChange(cb: (state: AIState) => void): void {
+    this.config = { ...this.config, onStateChange: cb };
+  }
+
   private setState(state: AIState): void {
     this.state = state;
     this.config.onStateChange?.(state);
   }
 
-  /**
-   * 加载所有模型
-   */
   async loadModels(): Promise<void> {
     if (this.loadingPromise) {
       return this.loadingPromise;
@@ -102,19 +83,22 @@ export class DouZeroTFJS {
   private async _loadModels(): Promise<void> {
     try {
       this.setState('loading');
+      console.log('[TFJS] 开始加载 TensorFlow.js 模型...');
 
-      console.log('\n开始加载 TensorFlow.js 模型...');
+      // 确保后端就绪（WebGL / CPU）
+      await tf.ready();
+      console.log(`[TFJS] 后端: ${tf.getBackend()}`);
 
       this.models = await preloadAllModels((model, progress) => {
         this.config.onProgress?.(model, progress);
       });
 
       this.setState('ready');
-      console.log('✓ 所有 TensorFlow.js 模型加载完成');
+      console.log('[TFJS] ✓ 所有 TensorFlow.js 模型加载完成');
     } catch (error) {
       this.setState('error');
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error('TensorFlow.js 模型加载失败:', err);
+      console.error('[TFJS] 模型加载失败:', err);
       this.config.onError?.(err);
       throw err;
     } finally {
@@ -123,90 +107,70 @@ export class DouZeroTFJS {
   }
 
   /**
-   * 预测地主动作
+   * LayersModel 推理：输入名为 z / x
    */
+  private async runModel(
+    model: tf.LayersModel,
+    z: number[][][],
+    x: number[][]
+  ): Promise<Float32Array> {
+    const zTensor = tf.tensor3d(this.flatten3D(z), [z.length, 5, 162]);
+    const xTensor = tf.tensor2d(this.flatten2D(x), [x.length, x[0].length]);
+
+    try {
+      const out = model.predict([zTensor, xTensor]) as tf.Tensor;
+      try {
+        const data = await out.data();
+        return new Float32Array(data);
+      } finally {
+        out.dispose();
+      }
+    } finally {
+      zTensor.dispose();
+      xTensor.dispose();
+    }
+  }
+
   async predictLandlord(obs: LandlordObservation): Promise<QValuePrediction> {
     const model = this.models.get('landlord');
-
     if (!model) {
       throw new Error('地主模型未加载');
     }
 
     const { z, x } = encodeLandlordObservation(obs);
+    const values = await this.runModel(model, z, x);
 
-    // 创建张量
-    const zTensor = tf.tensor3d(this.flatten3D(z), [z.length, 5, 162]);
-    const xTensor = tf.tensor2d(this.flatten2D(x), [x.length, x[0].length]);
-
-    try {
-      // 执行推理
-      const predictions = model.predict([zTensor, xTensor]) as tf.Tensor;
-
-      // 获取预测值
-      const values = await predictions.data();
-
-      return {
-        values: Array.from(values),
-        legalActions: obs.legalActions,
-      };
-    } finally {
-      // 清理张量
-      zTensor.dispose();
-      xTensor.dispose();
-    }
+    return {
+      values: Array.from(values),
+      legalActions: obs.legalActions,
+    };
   }
 
-  /**
-   * 预测农民动作
-   */
   async predictFarmer(
     obs: FarmerObservation,
     modelType: 'landlord_up' | 'landlord_down'
   ): Promise<QValuePrediction> {
     const model = this.models.get(modelType);
-
     if (!model) {
       throw new Error(`${modelType} 模型未加载`);
     }
 
     const { z, x } = encodeFarmerObservation(obs);
+    const values = await this.runModel(model, z, x);
 
-    // 创建张量
-    const zTensor = tf.tensor3d(this.flatten3D(z), [z.length, 5, 162]);
-    const xTensor = tf.tensor2d(this.flatten2D(x), [x.length, x[0].length]);
-
-    try {
-      // 执行推理
-      const predictions = model.predict([zTensor, xTensor]) as tf.Tensor;
-
-      // 获取预测值
-      const values = await predictions.data();
-
-      return {
-        values: Array.from(values),
-        legalActions: obs.legalActions,
-      };
-    } finally {
-      // 清理张量
-      zTensor.dispose();
-      xTensor.dispose();
-    }
+    return {
+      values: Array.from(values),
+      legalActions: obs.legalActions,
+    };
   }
 
-  /**
-   * 选择动作
-   */
   selectAction(prediction: QValuePrediction, useExploration: boolean = false): Card[] {
-    if (useExploration && this.config.explorationRate! > 0) {
+    if (useExploration && (this.config.explorationRate ?? 0) > 0) {
       return selectActionWithExploration(prediction, this.config.explorationRate!);
     }
-
     return selectBestAction(prediction);
   }
 
-  /**
-   * 组装观察并运行模型
-   */
   private async buildPrediction(
     hand: Card[],
     lastPlay: {
@@ -313,15 +277,14 @@ export class DouZeroTFJS {
         );
       }
 
+      console.log('[TFJS] AI 推理成功');
       return prediction;
-    } catch {
+    } catch (e) {
+      console.warn('[TFJS] 推理失败，将降级:', e);
       return null;
     }
   }
 
-  /**
-   * 决定出牌
-   */
   async decidePlay(
     hand: Card[],
     lastPlay: {
@@ -361,12 +324,9 @@ export class DouZeroTFJS {
       );
     }
 
-    return this.selectAction(pred, this.config.explorationRate! > 0);
+    return this.selectAction(pred, (this.config.explorationRate ?? 0) > 0);
   }
 
-  /**
-   * 返回前 K 手推荐
-   */
   async getTopK(
     hand: Card[],
     lastPlay: {
@@ -399,9 +359,6 @@ export class DouZeroTFJS {
     return getTopKActions(pred, k).map((a) => a.action);
   }
 
-  /**
-   * 降级策略
-   */
   private fallbackDecide(
     hand: Card[],
     lastPlay: any,
@@ -425,21 +382,15 @@ export class DouZeroTFJS {
     );
   }
 
-  /**
-   * 释放资源
-   */
   async dispose(): Promise<void> {
     for (const model of this.models.values()) {
       model.dispose();
     }
     this.models.clear();
     this.setState('idle');
-    console.log('✓ 已释放所有 TensorFlow.js 模型资源');
+    console.log('[TFJS] ✓ 已释放所有 TensorFlow.js 模型资源');
   }
 
-  /**
-   * 辅助方法: 展平 3D 数组
-   */
   private flatten3D(arr: number[][][]): number[] {
     const result: number[] = [];
     for (const matrix of arr) {
@@ -450,9 +401,6 @@ export class DouZeroTFJS {
     return result;
   }
 
-  /**
-   * 辅助方法: 展平 2D 数组
-   */
   private flatten2D(arr: number[][]): number[] {
     const result: number[] = [];
     for (const row of arr) {
@@ -462,9 +410,6 @@ export class DouZeroTFJS {
   }
 }
 
-/**
- * 创建 TensorFlow.js AI 实例
- */
 export function createDouZeroTFJS(config?: DouZeroTFJSConfig): DouZeroTFJS {
   return new DouZeroTFJS(config);
 }
