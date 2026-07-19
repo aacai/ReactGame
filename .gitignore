@@ -17,7 +17,8 @@ node_modules/
 dist/
 dist-ssr/
 dist-electron/
-build/
+build/*
+!build/icon.png
 out/
 release/
 .vite/

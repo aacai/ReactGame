@@ -1,8 +1,11 @@
 {
   "name": "xiangqi",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
+  "author": "xiangqi",
+  "description": "多棋类游戏（中国象棋 / 棋类博弈 / 斗地主）与桌面端",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,10 +14,10 @@
     "check": "tsc -b --noEmit",
     "build:android": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug && echo \"APK: app/build/outputs/apk/debug/app-debug.apk\"",
     "electron:dev": "npm run build && electron electron/main.cjs",
-    "dist:desktop": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:desktop": "npm run build && electron-builder --publish=never",
+    "dist:mac": "npm run build && electron-builder --mac --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
+    "dist:linux": "npm run build && electron-builder --linux --publish=never"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",
@@ -56,6 +59,8 @@
   "build": {
     "appId": "com.xiangqi.app",
     "productName": "中国象棋",
+    "icon": "build/icon.png",
+    "artifactName": "xiangqi-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
