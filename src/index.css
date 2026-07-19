@@ -1,0 +1,396 @@
+@import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at center, rgba(139, 69, 19, 0.1) 0%, transparent 70%),
+    linear-gradient(135deg, #1a1a1a 0%, #2d1810 25%, #1a1a1a 50%, #2d1810 75%, #1a1a1a 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 60px,
+      rgba(139, 69, 19, 0.03) 60px,
+      rgba(139, 69, 19, 0.03) 61px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 60px,
+      rgba(139, 69, 19, 0.03) 60px,
+      rgba(139, 69, 19, 0.03) 61px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.font-calligraphy {
+  font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+}
+
+.font-serif-sc {
+  font-family: 'Noto Serif SC', serif;
+}
+
+@keyframes check-flash {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+.animate-check-flash {
+  animation: check-flash 0.8s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes seal-press {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.seal-btn {
+  position: relative;
+  background: linear-gradient(145deg, #B22222, #8B0000);
+  color: #FFFFF0;
+  border: 2px solid #8B0000;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.seal-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.seal-btn:active:not(:disabled) {
+  animation: seal-press 0.15s ease;
+  transform: translateY(1px);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.seal-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.seal-btn-secondary {
+  background: linear-gradient(145deg, #4A7C59, #2d5a3d);
+  border-color: #2d5a3d;
+}
+
+.seal-btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(145deg, #5a8c69, #3d6a4d);
+}
+
+.wood-panel {
+  background:
+    linear-gradient(135deg,
+      rgba(222, 184, 135, 0.95) 0%,
+      rgba(210, 166, 121, 0.95) 25%,
+      rgba(196, 149, 106, 0.95) 50%,
+      rgba(210, 166, 121, 0.95) 75%,
+      rgba(222, 184, 135, 0.95) 100%
+    );
+  border: 3px solid #8B4513;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 30px rgba(139, 69, 19, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.wood-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 30px,
+      rgba(139, 69, 19, 0.08) 30px,
+      rgba(139, 69, 19, 0.08) 31px
+    );
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.scrollbar-classic::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-classic::-webkit-scrollbar-track {
+  background: rgba(139, 69, 19, 0.1);
+  border-radius: 4px;
+}
+
+.scrollbar-classic::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8B4513, #654321);
+  border-radius: 4px;
+}
+
+.scrollbar-classic::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #A0522D, #8B4513);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content {
+  position: relative;
+  max-width: 600px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .modal-content {
+    max-height: 95vh;
+  }
+}
+
+.landscape-game header {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.landscape-game .game-title {
+  font-size: 1.25rem !important;
+}
+
+.landscape-game .game-container {
+  flex-direction: row !important;
+  gap: 1rem !important;
+  padding: 0.5rem 1rem !important;
+}
+
+.landscape-game .board-container {
+  order: 1 !important;
+  width: auto !important;
+  max-width: none !important;
+  flex: 1;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landscape-game .board-wrapper {
+  max-height: 85vh;
+}
+
+.landscape-game .board-wrapper > div {
+  max-height: 85vh;
+}
+
+.landscape-game .panel-container {
+  order: 2 !important;
+  width: 200px !important;
+  flex-shrink: 0;
+}
+
+.landscape-game .panel-container .lg\\\\:sticky {
+  position: sticky;
+  top: 0.5rem;
+}
+
+.landscape-game .control-panel {
+  gap: 0.5rem !important;
+}
+
+.landscape-game .control-panel .wood-panel {
+  padding: 0.5rem !important;
+}
+
+.landscape-game .control-panel button {
+  padding-top: 0.4rem !important;
+  padding-bottom: 0.4rem !important;
+  font-size: 0.75rem !important;
+  min-height: 44px;
+}
+
+.landscape-game .move-history-title {
+  font-size: 1rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.landscape-game .move-history-list {
+  max-height: 120px !important;
+}
+
+.landscape-game .check-indicator {
+  font-size: 1.25rem !important;
+}
+
+.landscape-game .status-text {
+  font-size: 0.75rem !important;
+  padding-top: 0.125rem !important;
+  padding-bottom: 0.125rem !important;
+}
+
+.landscape-game .header-status {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+.landscape-menu {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.landscape-menu .menu-title {
+  font-size: 2.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.landscape-menu .menu-subtitle {
+  font-size: 0.875rem !important;
+}
+
+.landscape-menu .menu-container {
+  max-width: 900px !important;
+}
+
+.landscape-menu .menu-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 0.75rem !important;
+}
+
+.landscape-menu .menu-item {
+  padding: 0.75rem 1rem !important;
+}
+
+.landscape-menu .menu-item-icon {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+}
+
+.landscape-menu .menu-item-title {
+  font-size: 1.25rem !important;
+}
+
+.landscape-menu .menu-item-desc {
+  font-size: 0.75rem !important;
+}
+
+.landscape-waiting {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.landscape-waiting .waiting-container {
+  max-width: 600px !important;
+}
+
+.landscape-waiting .waiting-content {
+  padding: 1.5rem !important;
+}
+
+.landscape-waiting .waiting-icon {
+  width: 3rem !important;
+  height: 3rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.landscape-waiting .waiting-title {
+  font-size: 1.5rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.landscape-waiting .waiting-desc {
+  margin-bottom: 1rem !important;
+}
+
+.landscape-waiting .room-id {
+  font-size: 2.5rem !important;
+  padding: 0.75rem 1.5rem !important;
+}
+
+.landscape-waiting .waiting-footer {
+  margin-bottom: 1rem !important;
+}
+
+html {
+  touch-action: manipulation;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}

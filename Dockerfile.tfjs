@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 安装依赖
+RUN pip install --no-cache-dir \
+    onnx==1.16.0 \
+    onnx-tf==1.6.0 \
+    tensorflow==2.15.0 \
+    tensorflowjs==4.18.0
+
+# 复制脚本
+COPY scripts/convert_onnx_to_tfjs_simple.py /app/
+
+# 创建输出目录
+RUN mkdir -p /app/public/models/douzero_tfjs
+
+# 默认命令
+CMD ["python", "convert_onnx_to_tfjs_simple.py"]

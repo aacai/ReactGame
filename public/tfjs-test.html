@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TensorFlow.js 测试 - DouZero AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .log-container {
+      background: #1a1a1a;
+      color: #4ade80;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <h1 class="text-3xl font-bold mb-2">TensorFlow.js 测试</h1>
+    <p class="text-gray-600 mb-6">DouZero AI 浏览器端推理测试</p>
+
+    <!-- 状态卡片 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">状态</h2>
+      <div class="flex items-center gap-3">
+        <span class="text-gray-600">后端:</span>
+        <span id="backend" class="px-3 py-1 rounded text-white bg-gray-400">未加载</span>
+      </div>
+      <div class="flex items-center gap-3 mt-3">
+        <span class="text-gray-600">状态:</span>
+        <span id="state" class="px-3 py-1 rounded text-white bg-gray-400">空闲</span>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error-box" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+      <h3 class="font-semibold text-red-800 mb-2">错误</h3>
+      <p id="error-message" class="text-red-700"></p>
+      <div class="mt-4 text-sm text-red-600">
+        <p>解决方法:</p>
+        <ol class="list-decimal ml-4 mt-2 space-y-1">
+          <li>检查模型文件是否已转换</li>
+          <li>运行转换脚本: <code class="bg-red-100 px-1 rounded">python scripts/convert_onnx_to_tfjs_simple.py</code></li>
+          <li>参考文档: <code class="bg-red-100 px-1 rounded">docs/tfjs-conversion-guide.md</code></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="flex gap-4 mb-6">
+      <button
+        id="load-btn"
+        onclick="loadModels()"
+        class="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+      >
+        加载模型
+      </button>
+      <button
+        id="dispose-btn"
+        onclick="disposeModels()"
+        disabled
+        class="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+      >
+        释放资源
+      </button>
+      <button
+        onclick="window.location.href='/'"
+        class="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+      >
+        返回主页
+      </button>
+    </div>
+
+    <!-- 进度显示 -->
+    <div id="progress-box" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+      <h3 class="font-semibold text-blue-800 mb-4">加载进度</h3>
+      <div id="progress-container" class="space-y-3">
+        <!-- 动态添加进度条 -->
+      </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">日志</h2>
+      <div id="log" class="log-container p-4 rounded h-64 overflow-y-auto text-sm">
+        <p class="text-gray-500">点击"加载模型"开始测试...</p>
+      </div>
+    </div>
+
+    <!-- 说明 -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <h3 class="font-semibold text-blue-800 mb-2">使用说明</h3>
+      <ol class="list-decimal ml-4 text-sm text-blue-700 space-y-1">
+        <li>确保已安装 TensorFlow.js: <code class="bg-blue-100 px-1 rounded">npm install @tensorflow/tfjs</code></li>
+        <li>转换模型文件: <code class="bg-blue-100 px-1 rounded">python scripts/convert_onnx_to_tfjs_simple.py</code></li>
+        <li>启动开发服务器: <code class="bg-blue-100 px-1 rounded">npm run dev</code></li>
+        <li>访问: <code class="bg-blue-100 px-1 rounded">http://localhost:5173/tfjs-test.html</code></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+
+  <script>
+    let models = new Map();
+    let currentState = 'idle';
+
+    function addLog(message) {
+      const log = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.textContent = `${time} - ${message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateState(state) {
+      currentState = state;
+      const stateEl = document.getElementById('state');
+      stateEl.textContent = state === 'ready' ? '就绪' :
+                           state === 'loading' ? '加载中...' :
+                           state === 'error' ? '错误' : '空闲';
+      stateEl.className = `px-3 py-1 rounded text-white ${
+        state === 'ready' ? 'bg-green-500' :
+        state === 'loading' ? 'bg-blue-500' :
+        state === 'error' ? 'bg-red-500' : 'bg-gray-400'
+      }`;
+    }
+
+    function updateBackend(backend) {
+      const backendEl = document.getElementById('backend');
+      backendEl.textContent = backend || '未加载';
+      backendEl.className = `px-3 py-1 rounded text-white ${
+        backend === 'tfjs' ? 'bg-purple-500' :
+        backend === 'onnx' ? 'bg-blue-500' : 'bg-gray-400'
+      }`;
+    }
+
+    function showError(message) {
+      const errorBox = document.getElementById('error-box');
+      const errorMessage = document.getElementById('error-message');
+      errorBox.classList.remove('hidden');
+      errorMessage.textContent = message;
+    }
+
+    function hideError() {
+      const errorBox = document.getElementById('error-box');
+      errorBox.classList.add('hidden');
+    }
+
+    function showProgress() {
+      document.getElementById('progress-box').classList.remove('hidden');
+    }
+
+    function hideProgress() {
+      document.getElementById('progress-box').classList.add('hidden');
+    }
+
+    function updateProgress(model, percentage) {
+      let container = document.getElementById('progress-container');
+      let progressId = `progress-${model}`;
+
+      let progressEl = document.getElementById(progressId);
+      if (!progressEl) {
+        progressEl = document.createElement('div');
+        progressEl.id = progressId;
+        progressEl.innerHTML = `
+          <div class="text-sm text-blue-700 mb-1">${model}</div>
+          <div class="w-full bg-blue-100 rounded-full h-2">
+            <div class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        `;
+        container.appendChild(progressEl);
+      }
+
+      const progressBar = progressEl.querySelector('div > div');
+      progressBar.style.width = `${percentage}%`;
+    }
+
+    async function loadModels() {
+      hideError();
+      document.getElementById('load-btn').disabled = true;
+      document.getElementById('dispose-btn').disabled = true;
+
+      try {
+        addLog('开始加载 TensorFlow.js 模型...');
+        updateState('loading');
+        updateBackend('tfjs');
+        showProgress();
+
+        const modelTypes = ['landlord', 'landlord_up', 'landlord_down'];
+        const baseUrl = '/models/tfjs';
+
+        for (const modelType of modelTypes) {
+          const url = `${baseUrl}/${modelType}/model.json`;
+          addLog(`加载模型: ${modelType}`);
+          addLog(`URL: ${url}`);
+
+          updateProgress(modelType, 0);
+
+          try {
+            const model = await tf.loadGraphModel(url, {
+              onProgress: (fraction) => {
+                const percentage = Math.round(fraction * 100);
+                updateProgress(modelType, percentage);
+              }
+            });
+
+            models.set(modelType, model);
+            addLog(`✓ ${modelType} 加载成功`);
+            updateProgress(modelType, 100);
+          } catch (error) {
+            addLog(`✗ ${modelType} 加载失败: ${error.message}`);
+            throw new Error(`模型 ${modelType} 加载失败: ${error.message}`);
+          }
+        }
+
+        updateState('ready');
+        hideProgress();
+        document.getElementById('dispose-btn').disabled = false;
+        addLog('✓ 所有模型加载完成！');
+
+      } catch (error) {
+        updateState('error');
+        hideProgress();
+        showError(error.message);
+        addLog(`✗ 加载失败: ${error.message}`);
+      } finally {
+        document.getElementById('load-btn').disabled = false;
+      }
+    }
+
+    async function disposeModels() {
+      for (const [name, model] of models) {
+        model.dispose();
+        addLog(`已释放: ${name}`);
+      }
+      models.clear();
+      updateState('idle');
+      updateBackend(null);
+      document.getElementById('dispose-btn').disabled = true;
+      addLog('✓ 已释放所有模型资源');
+    }
+
+    // 页面加载完成后的初始化
+    window.addEventListener('load', () => {
+      addLog('TensorFlow.js 版本: ' + tf.version.tfjs);
+      addLog('后端: ' + tf.getBackend());
+      addLog('');
+      addLog('准备就绪，点击"加载模型"开始测试');
+    });
+  </script>
+</body>
+</html>
